@@ -31,8 +31,6 @@ public abstract class ShapeTool {
 
     @MultimethodFor("compare")
     private String compareTriangleAndCircle(Triangle a, Circle b) {
-        System.out.println("inverting...");
-
         return this.compareCircleAndTriangle(b, a);
     }
 }

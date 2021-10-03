@@ -6,4 +6,6 @@ import java.lang.annotation.RetentionPolicy;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface MultimethodFor {
     String value();
+
+    boolean deriveMirror() default false;
 }

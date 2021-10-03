@@ -1,5 +1,6 @@
 package org.hueho.sandbox.stupid.multi.dispatchers;
 
+import com.google.common.collect.ImmutableList;
 import net.bytebuddy.implementation.bind.annotation.AllArguments;
 import net.bytebuddy.implementation.bind.annotation.RuntimeType;
 import net.bytebuddy.implementation.bind.annotation.This;
@@ -8,7 +9,6 @@ import org.hueho.sandbox.stupid.multi.exceptions.MultiException;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -19,35 +19,36 @@ public class SlowDispatcher implements Dispatcher {
     private final Optional<Method> defaultDispatch;
     private final List<DispatchTuple> dispatchTuples;
 
-    public SlowDispatcher(Method toDispatch, List<Method> candidates) {
-        this(toDispatch, null, candidates);
-    }
-
-    public SlowDispatcher(Method toDispatch, Method defaultDispatch, List<Method> candidates) {
+    public SlowDispatcher(Method toDispatch, Method defaultDispatch, List<DispatchTuple> candidates) {
         this.toDispatch = toDispatch;
         this.defaultDispatch = Optional.ofNullable(defaultDispatch);
-        this.dispatchTuples = new ArrayList<>();
-
-        for (Method candidate : candidates) {
-            candidate.setAccessible(true);
-            dispatchTuples.add(new DispatchTuple(candidate, candidate.getParameterTypes()));
-        }
+        this.dispatchTuples = ImmutableList.copyOf(candidates);
+        this.dispatchTuples.forEach(dt -> dt.method().setAccessible(true));
     }
 
     @Override
     @RuntimeType
     public <T> Object invoke(@This T target, @AllArguments Object[] args) throws InvocationTargetException, IllegalAccessException {
-        Method toCall = dispatchTuples.stream().filter(d -> d.isAssignable(args)).findFirst()
-                .map(DispatchTuple::method)
-                .or(() -> defaultDispatch)
-                .orElseThrow(() -> new MultiException("No suitable candidate found to call for method " +
-                        toDispatch.getName() + " and arguments of type " +
-                        formatArgs(args)));
+        Optional<DispatchTuple> toCall = dispatchTuples.stream().filter(d -> d.isAssignable(args)).findFirst();
+        if (toCall.isPresent()) {
+            return toCall.get().invoke(target, args);
+        }
 
-        return toCall.invoke(target, args);
+        if (defaultDispatch.isPresent()) {
+            return defaultDispatch.get().invoke(target, args);
+        }
+
+        throw new MultiException("No suitable candidate found to call for method " +
+                toDispatch.getName() + " and arguments of type " +
+                formatArgs(args));
     }
 
     private String formatArgs(Object[] args) {
-        return Arrays.stream(args).map(Object::getClass).map(Class::getSimpleName).collect(Collectors.joining(","));
+        return Arrays.stream(args).map(this::className).collect(Collectors.joining(","));
+    }
+
+    private String className(Object obj) {
+        if (obj == null) return "<null>";
+        else return obj.getClass().getSimpleName();
     }
 }

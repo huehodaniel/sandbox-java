@@ -14,4 +14,8 @@ public class ClassToClassMap {
     public <T> void put(Class<T> inClass, Class<? extends T> outClass) {
         map.put(inClass, outClass);
     }
+
+    public void putUnsafe(Class<?> inClass, Class<?> outClass) {
+        map.put(inClass, outClass);
+    }
 }
